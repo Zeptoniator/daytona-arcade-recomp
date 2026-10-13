@@ -224,7 +224,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/extern/sdl3/CMakeLists.txt)
     add_library(gpurender STATIC src/app/gpu/gpu_renderer.cpp)
     target_include_directories(gpurender PUBLIC src)
     target_link_libraries(gpurender PUBLIC runtime ${M2_SDL_TARGET})
-    add_library(daytona_app OBJECT src/app/main.cpp src/app/launcher.cpp src/app/config.cpp src/app/controls.cpp src/app/ffb.cpp src/app/link_socket.cpp src/app/pacing.cpp)
+    add_library(daytona_app OBJECT src/app/main.cpp src/app/launcher.cpp src/app/launcher_mobile.cpp src/app/config.cpp src/app/controls.cpp src/app/ffb.cpp src/app/link_socket.cpp src/app/pacing.cpp)
     target_link_libraries(daytona_app PRIVATE runtime imgui gpurender ${M2_SDL_TARGET})
     if(WIN32)
         target_link_libraries(daytona_app PUBLIC ws2_32) # link play's sockets
@@ -372,6 +372,10 @@ add_executable(test_test_hold tests/test_test_hold.cpp)
 target_include_directories(test_test_hold PRIVATE src)
 add_test(NAME test_hold COMMAND test_test_hold)
 
+add_executable(test_link_settings tests/test_link_settings.cpp)
+target_include_directories(test_link_settings PRIVATE src)
+add_test(NAME link_settings COMMAND test_link_settings)
+
 add_executable(test_native_sound_sequencer tests/test_native_sound_sequencer.cpp src/runtime/native_sound_sequencer.cpp)
 target_include_directories(test_native_sound_sequencer PRIVATE src)
 add_test(NAME native_sound_sequencer COMMAND test_native_sound_sequencer)
@@ -387,6 +391,12 @@ if(TARGET SDL3::SDL3-static)
     target_include_directories(test_app_controls PRIVATE src)
     target_link_libraries(test_app_controls PRIVATE runtime SDL3::SDL3-static)
     add_test(NAME app_controls COMMAND test_app_controls)
+
+    # The mobile touch controls (header only).
+    add_executable(test_touch_controls tests/test_touch_controls.cpp)
+    target_include_directories(test_touch_controls PRIVATE src)
+    target_link_libraries(test_touch_controls PRIVATE runtime SDL3::SDL3-static)
+    add_test(NAME touch_controls COMMAND test_touch_controls)
 endif()
 
 if(EXISTS ${CMAKE_SOURCE_DIR}/extern/sdl3/include/SDL3/SDL_audio.h)

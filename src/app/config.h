@@ -42,6 +42,12 @@ struct Config {
     static constexpr double kMaxAspect = 21.0 / 9.0;
     double aspect_ratio() const; // width / height; 0 = original
     Controls controls;
+    // Touch controls (mobile): how opaque they are, and the finger travel in
+    // dp from the centre of the steering to full lock.
+    float touch_opacity = 0.6f;
+    int touch_steer_range = 70;
+    bool show_rate = false; // the game's frame rate over the touch controls
+    bool touch_hide_with_pad = true; // no touch controls while a gamepad is connected, until the screen is touched
     // Link play (the communication board; Revision A): this cabinet listens
     // for the one before it in the ring and connects to the next. Master or
     // slave, and the car number, are the game's own settings (test mode).

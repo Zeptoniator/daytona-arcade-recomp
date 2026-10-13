@@ -23,6 +23,10 @@ namespace app {
 // the display's closest exclusive mode, or borderless at the desktop's ("").
 void apply_fullscreen_mode(SDL_Window *window, const std::string &mode);
 
+// Android: the launcher's look for a touch screen, text and controls in dp
+// (scale: the display's, pixels per dp). Before the ImGui backends start.
+void mobile_style(float scale);
+
 class Launcher {
 public:
     Launcher(Config &cfg, SDL_Window *window);
@@ -38,8 +42,10 @@ public:
     void set_ffb_device(const char *kind) { ffb_device_ = kind; } // what force feedback is playing on
     void set_link_status(const std::string &s) { link_status_ = s; } // link play, for the Game tab
     void set_pacing_status(const std::string &s) { pacing_status_ = s; } // frame pacing now, for the Game tab
+    void set_game_rate(float r) { game_rate_ = r; } // the game's frames/s, measured while it ran
 
 private:
+    Result draw_mobile(bool game_running, const Devices &devices); // Android (launcher_mobile.cpp)
     void check_rom();
     void browse();
     static void SDLCALL dialog_done(void *self, const char *const *files, int filter);
@@ -52,12 +58,17 @@ private:
     const char *ffb_device_ = "none";
     std::string link_status_ = "off";
     std::string pacing_status_;
+    float game_rate_ = 0;
     char link_next_buf_[256] = {};
     char path_buf_[1024] = {};
 
     std::mutex dialog_mutex_;
     std::string dialog_result_;
     bool dialog_pending_ = false;
+
+    int tab_ = 0;                          // mobile: the tab shown
+    bool drag_armed_ = false, dragging_ = false; // mobile: a press in the settings, and whether it became a scroll
+    float fling_ = 0;                      // mobile: the scroll's speed once let go
 
     int capture_action_ = -1; // binding being captured
     enum CaptureKind { CaptureKey, CapturePad, CaptureJoy } capture_kind_ = CaptureKey;

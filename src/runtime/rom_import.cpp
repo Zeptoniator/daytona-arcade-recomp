@@ -109,6 +109,17 @@ std::string hex8(uint32_t v) {
     return b;
 }
 
+// The member holding a file: its name in this MAME, or, in a set made by an
+// older MAME that named it differently (mpr-16537.28 for mpr-16537.ic28), the
+// member with its size and CRC. Null when neither is in the archive.
+const std::string *member(const Archive &z, const Load &l) {
+    const auto it = z.entries().find(l.file);
+    if (it != z.entries().end()) return &it->first;
+    for (const auto &[name, e] : z.entries())
+        if (e.has_crc && e.crc == l.crc && e.size == l.size) return &name;
+    return nullptr;
+}
+
 } // namespace
 
 std::vector<RomCheck> check_rom_set(const std::string &zip_path) {
@@ -118,11 +129,12 @@ std::vector<RomCheck> check_rom_set(const std::string &zip_path) {
     for (const Load &l : std::span(set.loads, set.count)) {
         RomCheck c;
         c.file = l.file;
-        const auto it = z->entries().find(l.file);
-        if (it == z->entries().end()) c.problem = "missing";
-        else if (it->second.size != l.size) c.problem = "wrong size";
-        else if (it->second.has_crc && it->second.crc != l.crc)
-            c.problem = "wrong CRC " + hex8(it->second.crc) + " (expected " + hex8(l.crc) + ")";
+        const std::string *name = member(*z, l);
+        const Archive::Entry *e = name ? &z->entries().at(*name) : nullptr;
+        if (!e) c.problem = "missing";
+        else if (e->size != l.size) c.problem = "wrong size";
+        else if (e->has_crc && e->crc != l.crc)
+            c.problem = "wrong CRC " + hex8(e->crc) + " (expected " + hex8(l.crc) + ")";
         else c.ok = true;
         out.push_back(c);
     }
@@ -143,7 +155,9 @@ M2Board::Images import_rom_set(const std::string &zip_path) {
     img.pcm2.assign(0x400000, 0);
     const Set &set = this_set();
     for (const Load &l : std::span(set.loads, set.count)) {
-        const std::vector<uint8_t> data = z->read(l.file); // CRC against the archive's own
+        const std::string *name = member(*z, l);
+        if (!name) throw ZipError(std::string("missing ") + l.file);
+        const std::vector<uint8_t> data = z->read(*name); // CRC against the archive's own
         if (data.size() != l.size || crc32(data.data(), data.size()) != l.crc)
             throw ZipError(std::string(l.file) + ": not the " + set.name + " ROM this build was recompiled from");
         std::vector<uint8_t> *r = nullptr;

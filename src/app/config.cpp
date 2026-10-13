@@ -49,6 +49,10 @@ void Config::load() {
         else if (k == "music_volume") music_volume = std::clamp(std::strtof(v.c_str(), nullptr), 0.0f, 1.0f);
         else if (k == "effects_volume") effects_volume = std::clamp(std::strtof(v.c_str(), nullptr), 0.0f, 1.0f);
         else if (k == "native_audio") native_audio = v == "1";
+        else if (k == "touch_opacity") touch_opacity = std::clamp(std::strtof(v.c_str(), nullptr), 0.1f, 1.0f);
+        else if (k == "touch_steer_range") touch_steer_range = std::clamp(std::atoi(v.c_str()), 30, 200);
+        else if (k == "show_rate") show_rate = v == "1";
+        else if (k == "touch_hide_with_pad") touch_hide_with_pad = v == "1";
         else if (k == "deadzone") controls.deadzone = std::strtof(v.c_str(), nullptr);
         else if (k == "joy_deadzone") controls.joy_deadzone = std::clamp(std::strtof(v.c_str(), nullptr), 0.0f, 0.4f);
         else if (k == "steer_invert") controls.steer_invert = v == "1";
@@ -93,6 +97,10 @@ void Config::save() const {
     f << "pace_sync_display=" << (pace_sync_display ? 1 : 0) << "\n";
     f << "pace_vrr=" << (pace_vrr ? 1 : 0) << "\n";
     f << "music_volume=" << music_volume << "\n";
+    f << "touch_opacity=" << touch_opacity << "\n";
+    f << "touch_steer_range=" << touch_steer_range << "\n";
+    f << "show_rate=" << (show_rate ? 1 : 0) << "\n";
+    f << "touch_hide_with_pad=" << (touch_hide_with_pad ? 1 : 0) << "\n";
     f << "effects_volume=" << effects_volume << "\n";
     f << "native_audio=" << (native_audio ? 1 : 0) << "\n";
     f << "deadzone=" << controls.deadzone << "\n";

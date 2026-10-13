@@ -1,5 +1,52 @@
 # Handoff
 
+## Android: Revision A on a phone, touch controls and launcher (2026-10-13)
+
+Built and run on a Redmi Note 13 (23124RA7EO, Snapdragon 685, Adreno 610,
+Vulkan 1.1, Android 15) from the user's `daytona` (Revision A) set.
+
+- ROM import: the set's zip, from an older MAME, names 10 files without
+  "ic" (`mpr-16537.28` for `mpr-16537.ic28`); every CRC matched. The importer
+  now falls back to the member with the file's size and CRC when its name is
+  missing (rom_import.cpp `member`), in the check and the import alike.
+- Revision A's factory settings (LINK ID MASTER, CABINET TWIN) hung at
+  NETWORK CHECKING on the phone, which has no F2 or Service button. Measured
+  with m2run (`--save-nvram`, `--nvram`): LINK ID is EEPROM byte 11 (MASTER
+  1, SINGLE 0), CABINET bytes 26 and 124 (TWIN 1, UPLIGHT 2), bytes 8-9 the
+  CRC-16/XMODEM of bytes 10-127, low byte first (matches the game's for both
+  dumps; the game keeps an EEPROM patched this way). LINK ID SINGLE alone is
+  enough: attract mode before frame 1000 with CABINET still TWIN; UPLIGHT with
+  MASTER still hangs. The game writes its factory settings into a blank EEPROM
+  by frame 4. The app (all platforms), with link play off, sets LINK ID to
+  SINGLE before starting the game (runtime/link_settings.h); with no saved
+  EEPROM it first powers a board on for up to 30 frames to get the game's own
+  settings. Test: test_link_settings (synthetic EEPROM, CRC check value).
+- Test menu navigation, measured: from the menu's EXIT, red (view 1) down,
+  green (view 4) up; in GAME SYSTEM yellow (view 3) / blue (view 2) change
+  the value; LINK ID cycles MASTER, SLAVE, SINGLE.
+- Android build: `-Pm2Romset=daytona` (build.gradle reads it, and the
+  generated code from build-<set>/gen).
+- Touch controls rewritten (touch_controls.h, touch_overlay.h): corner
+  clusters in dp beside the picture instead of a row over the HUD, floating
+  steering, cabinet-coloured view buttons, gear readout, opacity and steering
+  travel settings. test_touch_controls is now built and run by CTest; it
+  used assert and had been built without CTest, and in a Release build its
+  asserts were compiled out: it now undefines NDEBUG.
+- Launcher on Android: launcher_mobile.cpp (see platform/mobile/README.md).
+  Desktop launcher unchanged.
+- Measured game frame rate (logged every 5 s, optional on screen): attract
+  mode, software renderer 41-57 frames/s, hardware renderer 56.9-58.0.
+- Android's back button (SDL_SCANCODE_AC_BACK; nothing handled it before, so
+  it did nothing) pauses into the launcher and resumes from it, and cancels a
+  binding capture. Checked on the phone with `adb shell input keyevent 4`.
+- Touch controls hide while a gamepad is connected, 8 s after the last touch
+  (setting, on by default; not checked with a real gamepad).
+- Launcher icon: adaptive vector (res/), a chequered flag and the four view
+  colours, drawn here; no Sega artwork.
+
+Not done: iOS untested with these changes (the touch layout uses dp from
+the display scale over the pixel density; the new launcher is Android only).
+
 ## Mobile upstream rebase and GPU startup diagnostics (2026-10-07)
 
 Rebased mobile onto original alphanu1 upstream/main 0435a46; recovery branch

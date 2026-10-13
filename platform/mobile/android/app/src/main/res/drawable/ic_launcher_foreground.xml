@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher icon: a chequered flag and the cabinet's four view-button colours. Our own drawing. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#E8ECF3" android:pathData="M33,30h3v46h-3z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M36,32h42v28h-42z" />
+    <path android:fillColor="#111318" android:pathData="M43,32h7v7h-7zM57,32h7v7h-7zM71,32h7v7h-7zM36,39h7v7h-7zM50,39h7v7h-7zM64,39h7v7h-7zM43,46h7v7h-7zM57,46h7v7h-7zM71,46h7v7h-7zM36,53h7v7h-7zM50,53h7v7h-7zM64,53h7v7h-7z" />
+    <path android:fillColor="#DC2828" android:pathData="M42.5,70a4.5,4.5 0 1,0 9,0a4.5,4.5 0 1,0 -9,0z" />
+    <path android:fillColor="#286EE6" android:pathData="M53.5,70a4.5,4.5 0 1,0 9,0a4.5,4.5 0 1,0 -9,0z" />
+    <path android:fillColor="#F0C81E" android:pathData="M64.5,70a4.5,4.5 0 1,0 9,0a4.5,4.5 0 1,0 -9,0z" />
+    <path android:fillColor="#28B446" android:pathData="M75.5,70a4.5,4.5 0 1,0 9,0a4.5,4.5 0 1,0 -9,0z" />
+</vector>

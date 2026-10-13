@@ -2,6 +2,13 @@ plugins {
     id 'com.android.application'
 }
 
+// The ROM set this APK is built from (-Pm2Romset=daytona for Revision A);
+// its generated code is where scripts/setup.py puts it: build/gen for
+// daytona93, build-<set>/gen for the others. -Pm2GenRoot overrides that.
+def m2Romset = providers.gradleProperty('m2Romset').getOrElse('daytona93')
+def m2GenRoot = providers.gradleProperty('m2GenRoot').getOrElse(
+        "${rootProject.projectDir}/../../../" + (m2Romset == 'daytona93' ? 'build' : "build-${m2Romset}") + '/gen')
+
 android {
     namespace 'com.boucydesigns.daytona'
     compileSdk 37
@@ -17,7 +24,8 @@ android {
         externalNativeBuild {
             cmake {
                 arguments '-DCMAKE_BUILD_TYPE=Release',
-                          "-DM2_GEN_ROOT=${rootProject.projectDir}/../../../build/gen"
+                          "-DM2_ROMSET=${m2Romset}",
+                          "-DM2_GEN_ROOT=${m2GenRoot}"
                 targets 'daytona'
                 cppFlags '-std=c++20'
             }

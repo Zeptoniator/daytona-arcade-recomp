@@ -205,9 +205,10 @@ Enter is start; A S D F are the view buttons; 1-4 or Q/W change gear. The
 full table is in the [README](../README.md#playing).
 
 **Revision A, first run:** its factory settings are a linked twin
-cabinet, so it waits at the settings screen for a second cabinet. Press
-**F2** (Test), go to the game settings, set the cabinet to a single cabinet
-(and the link off), and leave test mode. That is saved, once.
+cabinet (LINK ID MASTER), which waits at the settings screen for a second
+cabinet. With link play off in the launcher, the game sets LINK ID to SINGLE
+by itself before it starts, so it goes straight to its attract mode. Other
+settings (cabinet, difficulty) are in test mode (**F2**), saved once.
 
 **Link play (Revision A, experimental):** two or more computers on the same
 network (Wi-Fi or wired) race each other, like linked arcade cabinets. On
@@ -346,8 +347,9 @@ below. They say which graphics driver and renderer are in use (for example
 start if it could not.
 
 **Revision A stays on a screen of settings (LINK ID, CABINET TWIN)**
-It is waiting for a second, linked cabinet. Set a single cabinet in test
-mode (F2), as under [Play](#4-play).
+It is waiting for a second, linked cabinet: link play is on in the launcher
+(Game tab), or LINK ID was set to MASTER or SLAVE in test mode with link play
+on. Turn link play off and Reset: LINK ID goes back to SINGLE.
 
 **Starting again from scratch**
 Delete the `build` folder (and `build-daytona`) and run setup again. Your

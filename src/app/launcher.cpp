@@ -143,7 +143,7 @@ bool Launcher::handle_event(const SDL_Event &e) {
         return std::string(g);
     };
     if (e.type == SDL_EVENT_KEY_DOWN) {
-        if (e.key.scancode == SDL_SCANCODE_ESCAPE) {
+        if (e.key.scancode == SDL_SCANCODE_ESCAPE || e.key.scancode == SDL_SCANCODE_AC_BACK) {
             capture_action_ = -1; // cancel
             joy_tracking_ = false;
         } else if (capture_kind_ == CaptureKey) {
@@ -226,6 +226,9 @@ Launcher::Result Launcher::draw(bool game_running, const Devices &devices) {
             check_rom();
         }
     }
+#ifdef SDL_PLATFORM_ANDROID
+    return draw_mobile(game_running, devices);
+#endif
 
     Result result = Stay;
     const ImGuiViewport *vp = ImGui::GetMainViewport();

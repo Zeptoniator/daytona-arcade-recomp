@@ -20,6 +20,7 @@
 #include "app/ffb.h"
 #include "app/pacing.h"
 #include "runtime/test_hold.h"
+#include "runtime/link_settings.h"
 #include "app/link_socket.h"
 #include "app/gpu/gpu_renderer.h"
 #include "app/launcher.h"
@@ -45,6 +46,7 @@
 #include <SDL3/SDL_main.h> // Windows: the WinMain entry point a WIN32 (GUI) program links against
 
 #include <algorithm>
+#include <array>
 #include <utility>
 #include <cstdio>
 #include <cstring>
@@ -52,6 +54,7 @@
 #include <iterator>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <stdexcept>
 #include <vector>
 
@@ -255,6 +258,9 @@ int main(int argc, char **argv) {
     ImGui::GetStyle().FontSizeBase = 17.0f;
     ImGui::GetStyle().FramePadding = ImVec2(8, 6);
     ImGui::GetStyle().ScrollbarSize = 20.0f;
+#elif defined(SDL_PLATFORM_ANDROID)
+    // Window units are pixels: text and controls sized in dp (app::mobile_style).
+    app::mobile_style(SDL_GetWindowDisplayScale(window));
 #else
     ImGui::GetStyle().ScaleAllSizes(SDL_GetWindowDisplayScale(window));
 #endif
@@ -303,6 +309,24 @@ int main(int argc, char **argv) {
         save_file(eeprom_path, game->board().io().eeprom);
         save_file(backup_path, game->board().backup_ram());
     };
+    // Revision A with link play off: LINK ID SINGLE (runtime/link_settings.h),
+    // or the game waits at NETWORK CHECKING for a second cabinet. A first run
+    // has no settings yet: a short power-on lets the game write its own.
+    auto unlinked_settings = [&] {
+        if (cfg.link || std::string_view(M2_ROMSET) != "daytona") return;
+        std::array<uint8_t, 128> eeprom;
+        eeprom.fill(0xff);
+        load_file(eeprom_path, eeprom);
+        if (!rt::eeprom_has_settings(eeprom)) {
+            rt::GameLoop boot(rt::import_rom_set(cfg.rom_path), false);
+            for (int i = 0; i < 30 && !rt::eeprom_has_settings(boot.board().io().eeprom); i++) boot.run_frame(rt::Inputs{});
+            eeprom = boot.board().io().eeprom;
+        }
+        if (rt::set_link_single(eeprom)) {
+            save_file(eeprom_path, eeprom);
+            std::printf("daytona: link play off: LINK ID set to SINGLE\n");
+        }
+    };
     auto start_game = [&] {
         save_nv();
         ffb.reset(); // a new game: the drive board as at power-on
@@ -314,6 +338,7 @@ int main(int argc, char **argv) {
         native_fault = false;
         native_active = cfg.native_audio;
         try {
+            unlinked_settings();
             auto images = rt::import_rom_set(cfg.rom_path);
             if (native_active) {
                 if (!audio_initialized) throw std::runtime_error("Native audio needs an available audio device.");
@@ -383,6 +408,8 @@ int main(int argc, char **argv) {
         return double(mode->refresh_rate);
     };
     app::Pacer pacer;
+    uint64_t rate_frames = ~0ull, rate_from = 0, rate_reports = 0; // the game's frame rate, measured
+    float game_rate = 0;
     pacer.set(app::Pacing{}, SDL_GetTicksNS());
     rt::TestHold test_hold; // the launcher's "Hold Test button"
 #ifdef M2_MOBILE
@@ -396,18 +423,22 @@ int main(int argc, char **argv) {
 #ifdef M2_MOBILE
     app::TouchControls touch;
     SDL_Rect touch_area{};
-    int touch_width = 0, touch_height = 0;
+    int touch_width = 0, touch_height = 0, touch_range = 0;
+    uint64_t last_touch = 0; // with a gamepad the touch controls hide, and show for a while after a touch
+    // one dp in window units: the display's scale over its pixels per window unit (iOS: points)
+    const float touch_dp = SDL_GetWindowDisplayScale(window) / std::max(SDL_GetWindowPixelDensity(window), 1.0f);
 #endif
     while (running) {
 #ifdef M2_MOBILE
         int tw = 0, th = 0;
         SDL_GetWindowSize(window, &tw, &th);
-        SDL_Rect area{0, 0, tw, th};
-        SDL_GetWindowSafeArea(window, &area);
+        SDL_Rect area{0, 0, tw, th}, safe = area;
+        SDL_GetWindowSafeArea(window, &safe); // its top and bottom: the sides' insets (a cutout, a hidden navigation bar) are left to the layout
+        area.y = safe.y, area.h = safe.h;
         if (tw != touch_width || th != touch_height || area.x != touch_area.x || area.y != touch_area.y ||
-            area.w != touch_area.w || area.h != touch_area.h) {
-            touch.layout(float(area.x), float(area.y), float(area.w), float(area.h));
-            touch_area = area; touch_width = tw; touch_height = th;
+            area.w != touch_area.w || area.h != touch_area.h || cfg.touch_steer_range != touch_range) {
+            touch.layout(float(area.x), float(area.y), float(area.w), float(area.h), touch_dp, float(cfg.touch_steer_range));
+            touch_area = area; touch_width = tw; touch_height = th; touch_range = cfg.touch_steer_range;
         }
         if (in_launcher) touch.clear();
 #endif
@@ -421,6 +452,7 @@ int main(int argc, char **argv) {
             if (!in_launcher && (e.type == SDL_EVENT_FINGER_DOWN || e.type == SDL_EVENT_FINGER_MOTION ||
                 e.type == SDL_EVENT_FINGER_UP || e.type == SDL_EVENT_FINGER_CANCELED)) {
                 const float tx = e.tfinger.x * touch_width, ty = e.tfinger.y * touch_height;
+                last_touch = SDL_GetTicksNS();
                 if (e.type == SDL_EVENT_FINGER_DOWN)
                     in_launcher = touch.down(e.tfinger.touchID, e.tfinger.fingerID, tx, ty);
                 else if (e.type == SDL_EVENT_FINGER_MOTION)
@@ -438,9 +470,14 @@ int main(int argc, char **argv) {
                 SDL_SetWindowFullscreen(window, cfg.fullscreen);
                 cfg.save();
             }
+            // Android's back button: pauses the game, and from the launcher goes back to it.
+            const bool back = e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_AC_BACK && !e.key.repeat;
             if (in_launcher) {
-                if (!launcher.handle_event(e)) ImGui_ImplSDL3_ProcessEvent(&e);
-            } else if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE) {
+                if (!launcher.handle_event(e)) {
+                    if (back && game && launcher.rom_ok()) in_launcher = false; // resume
+                    else ImGui_ImplSDL3_ProcessEvent(&e);
+                }
+            } else if (e.type == SDL_EVENT_KEY_DOWN && (e.key.scancode == SDL_SCANCODE_ESCAPE || back)) {
                 in_launcher = true; // pause and show the launcher
             }
         }
@@ -535,6 +572,15 @@ int main(int argc, char **argv) {
 #endif
             launcher.set_ffb_device(ffb.device_kind());
             launcher.set_link_status(link_status(game->board().comm_board(), link.get(), cfg));
+            // Game frames per second over the last second (the arcade: 57.52); logged every 5 s.
+            if (rate_frames == ~0ull) {
+                rate_frames = game->frames(), rate_from = now;
+            } else if (now - rate_from >= 1'000'000'000ull) {
+                game_rate = float(double(game->frames() - rate_frames) * 1e9 / double(now - rate_from));
+                if (++rate_reports % 5 == 0) SDL_Log("daytona: %.1f game frames/s", double(game_rate));
+                launcher.set_game_rate(game_rate);
+                rate_frames = game->frames(), rate_from = now;
+            }
             if (game->sound()) {
                 game->sound()->set_volumes(cfg.music_volume, cfg.effects_volume);
                 if (have_audio) audio.push(*game->sound(), cfg.mute ? 0.0f : cfg.volume, pacer.pacing().game_hz / kArcadeHz);
@@ -543,6 +589,7 @@ int main(int argc, char **argv) {
         } else {
             pacer.pause(now);
             ffb.stop(); // paused in the launcher: let the wheel go
+            rate_frames = ~0ull; // the rate starts again on Resume
         }
 
         SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(dev);
@@ -615,7 +662,8 @@ int main(int argc, char **argv) {
             default: break;
             }
 #ifdef M2_MOBILE
-            else app::draw_touch_controls(touch);
+            else if (!(cfg.touch_hide_with_pad && devices.pad) || SDL_GetTicksNS() - last_touch < 8'000'000'000ull)
+                app::draw_touch_controls(touch, cfg.controls.gear, cfg.touch_opacity, cfg.show_rate ? game_rate : -1);
 #endif
             sync_native_audio();
             ImGui::Render();
